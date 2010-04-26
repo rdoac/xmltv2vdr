@@ -83,6 +83,15 @@ sub xmltvtranslate
     return $line;
 }
 
+# Translate genre text to hex numbers 
+sub genre_id {
+	my ($xmlline, $genretxt, $genrenum) = @_;
+	if ( $xmlline =~ m/\<category\>($genretxt)\<\/category\>/)
+	{
+       	 return "G $genrenum\r\n";
+	}
+}
+
 
 
 # Convert XMLTV time format (YYYYMMDDmmss ZZZ) into VDR (secs since epoch)
@@ -197,6 +206,8 @@ sub ProcessEpg
     my $chanevent = 0;
     my $dc = 0;
     my $founddesc=0;
+    my $genreinfo=0;
+    my $gi = 0;
     my $chanCur = "";
     my $nbEventSent = 0;
     my $atLeastOneEpg = 0;
@@ -268,7 +279,7 @@ sub ProcessEpg
             {
                 # Send VDR Description & end of event
                 $epgText .= "D $1\r\n";
-                $epgText .= "e\r\n";
+                #$epgText .= "e\r\n";
                 
                 $dc++;
                 $founddesc=1;
@@ -279,19 +290,78 @@ sub ProcessEpg
                 $dc++;
             }
         }
+
+	if ( $genre == 0 )
+	{
+		if ( ( $genreinfo == 0 ) && ( $xmlline =~ m:\<category.*?\>(.*?)\</category\>:o ) )
+		{
+			if ( $genre == $gi )
+			{
+				open(GENRE, "genres.conf") || die "cannot open file";
+				my $genretxt;
+				my $genrenum;
+				my $genreline;
+				my $tmp;
+				while ( $genreline=<GENRE> )
+				{
+					s/#.*//;
+					s/^(\s)*$//;
+					chomp $genreline;
+					my ($genretxt, $genrenum) = split(/:/, $genreline);
+					$tmp=genre_id($xmlline, $genretxt, $genrenum);
+					if ($tmp)
+					{
+       			 			last; # break out of the while loop
+    					}
+		
+				}
+				if ($tmp) {
+					$epgText .=$tmp;
+					$gi++;
+					$genreinfo=1;
+				}
+			}
+			else
+			{
+				# No genre information asked
+				$genre++;
+			}
+		} 
+	} 
+	else
+	{
+	$genreinfo=1;
+	}
+
+        # No Description and or Genre found
         
-        # No Description found at required verbosity
-        
-        if ( ($xmlline =~ /\<\/programme/o ) )
+        if (( $xmlline =~ /\<\/programme/o )) 
         {
-            if ( $founddesc == 0 )
+            if (( $founddesc == 0 ) || ( $genreinfo == 0 ))
             { 
-                $epgText .= "D Info Not Available\r\n";
+                if (( $founddesc == 0 ) && ( $genreinfo == 0 )) {
+		$epgText .= "D Info Not Available\r\n";
+		$epgText .= "G 0\r\n";
                 $epgText .= "e\r\n";
+		}
+		if  (( $founddesc == 0 ) && ( $genreinfo == 1 )) {
+		$epgText .= "D Info Not Available\r\n";
+                $epgText .= "e\r\n";
+		}
+		if  (( $founddesc == 1 ) && ( $genreinfo == 0 )) {
+		$epgText .= "G 0\r\n";
+                $epgText .= "e\r\n";
+		}
             }
+	    else 
+	    {
+		$epgText .= "e\r\n";
+	    }
             $chanevent=0 ;
             $dc=0 ;
             $founddesc=0 ;
+	    $genreinfo=0;
+	    $gi=0;
         }
     }
     
@@ -315,6 +385,7 @@ Options:
  -c channels.conf	File containing modified channels.conf info
  -d hostname            destination hostname (default: localhost)
  -h			Show help text
+ -g genreinformation   if file contains genre information then add it
  -l description length  Verbosity of EPG descriptions to use
                         (0-2, 0: more verbose, default: 0)
  -p port                SVDRP port number (default: 2001)
@@ -326,10 +397,11 @@ Options:
     
 };
 
-die $Usage if (!getopts('a:d:p:l:t:x:c:vhs') || $opt_h);
+die $Usage if (!getopts('a:d:p:l:t:x:c:vghs') || $opt_h);
 
 $verbose = 1 if $opt_v;
 $sim = 1 if $opt_s;
+$gen = 1 if $opt_g;
 $adjust = $opt_a || 0;
 my $Dest   = $opt_d || "localhost";
 my $Port   = $opt_p || 2001;
@@ -340,11 +412,18 @@ my $channelsfile = $opt_c  || die "$Usage Need to specify a channels.conf file";
 
 # Check description value
 
+if ( $gen == 1 ){
+$genre=0;
+}
+else {
+$genre=1;
+}
+
+
 if ( ( $descv < 0 ) || ( $descv > 2 ) )
 {
     die "$Usage Description out of range. Try 0 - 2";
 }
-
 # Read all the XMLTV stuff into memory - quicker parsing
 
 open(XMLTV, "$xmltvfile") || die "cannot open xmltv file";
