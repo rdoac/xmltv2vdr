@@ -52,3 +52,7 @@ events showing in the EPG when times are changed for programmes
   in the config file
 - Fixed small problem with pattern matching code (thanks to Dominic Morris 
   and Tony Leino)
+
+2007-04-13: Version 1.0.7
+
+- Code updates and speed improvements, with thanks to Sebastien Lucas
