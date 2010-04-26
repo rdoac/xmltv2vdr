@@ -1,0 +1,65 @@
+This is a script for the Video Disk Recorder (VDR).
+
+Written by:                  Morfsta <morfsta@irmplc.com>
+
+See the file COPYING for license information.
+
+Description:
+
+xmltv is used to provide XML based Electronic Program Guide (EPG) information
+over the Internet, including channel, programmes (start and end time) and
+descrptions.
+
+Video Disk Recorder (VDR) is a linux based application used to record
+programs, based on a schedule. In the UK (and maybe other countries) the
+EPG information is taken from the DVB stream, and only has "now and next"
+information that means it is not possible to record programs in advance
+from the schedule.
+
+This tool, xmltv2vdr.pl, puts information from xmltv into VDR for the
+schedule.
+
+Installation
+------------
+
+1) Firstly, install xmltv onto your system (see
+http://sourceforge.net/projects/xmltv) Ensure you have installed all the
+dependencies
+
+2) Ensure that you have installed the PERL module date::manip
+
+3) Ensure VDR is running!
+
+4) Run tv_grab_uk (or tv_grab_XX where XX is your xmltv supported country)
+--configure and select the channels to meet your package. This will put
+channel information in ~/.xmltv/tv_grab_XX OR copy the provided file
+tv_grab_uk to ~/.xmltv/ for UK freeview services.
+
+5) Run tv_grab_XX > channels.xml
+
+6) Copy your channels.conf from VDR to here (e.g. cp /video/channels.conf .)
+
+7) Look through the channel names that you have in channels.xml and map
+them to an extra field that is in the local copy of channels.conf (DO NOT
+MODIFY THE FILE THAT VDR ACTUALLY USES OR YOU MIGHT BREAK IT!)
+
+For example: -
+
+in channels.xml : <channel id="sky-news.sky.com">
+
+in channels.conf : Sky News (TV):578166:I0C34D0M16B8T2G32Y0:T:27500:101:102,104:0:0:22080:0:0:0:sky-news.sky.com
+
+Note the extra field added at the end - don't forget the colon.
+
+ALTERNATIVELY use the provided channels.conf.terr for UK freeview in this
+package (crystal palace)
+
+8) Run xml2vdr.pl: -
+
+./xml2vdr.pl -x channels.xml -c channels.conf
+
+Voila! You should now have extended EPG information in VDR!
+
+Any suggestions for changes, problems that you locate, thanks, praise,
+flames pizzas, or gifts of electrical items (a plasma screen would be
+nice), please mail me. Seriously, enjoy!
