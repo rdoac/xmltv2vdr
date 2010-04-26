@@ -40,36 +40,36 @@ sub xmltvtranslate
     
     # German Requests - mail me with updates if some of these are wrong..
     
-    $line=~s/ und uuml;/ü/g;
-    $line=~s/ und auml;/ä/g; 
-    $line=~s/ und ouml;/ö/g;
+    $line=~s/ und uuml;/Ã¼/g;
+    $line=~s/ und auml;/Ã¤/g; 
+    $line=~s/ und ouml;/Ã¶/g;
     $line=~s/ und quot;/"/g; 
-    $line=~s/ und szlig;/ß/g; 
+    $line=~s/ und szlig;/ÃŸ/g; 
     $line=~s/ und amp;/\&/g; 
-    $line=~s/ und middot;/·/g; 
-    $line=~s/ und Ouml;/Ö/g; 
-    $line=~s/ und Auml;/Ä/g;
-    $line=~s/ und Uuml;/Ü/g ;
-    $line=~s/ und eacute;/é/g;
-    $line=~s/ und aacute;/á/g;
-    $line=~s/ und deg;/°/g;
-    $line=~s/ und ordm;/º/g;
-    $line=~s/ und ecirc;/ê/g;
-    $line=~s/ und ecirc;/ê/g;
-    $line=~s/ und ccedil;/ç/g;
-    $line=~s/ und curren;/¤/g;
-    $line=~s/und curren;/¤/g;
-    $line=~s/und Ccedil;/Ç/g;
-    $line=~s/ und ocirc;/ô/g;
-    $line=~s/ und egrave;/è/g;
-    $line=~s/ und agrave;/à/g;
+    $line=~s/ und middot;/Â·/g; 
+    $line=~s/ und Ouml;/Ã–/g; 
+    $line=~s/ und Auml;/Ã„/g;
+    $line=~s/ und Uuml;/Ãœ/g ;
+    $line=~s/ und eacute;/Ã©/g;
+    $line=~s/ und aacute;/Ã¡/g;
+    $line=~s/ und deg;/Â°/g;
+    $line=~s/ und ordm;/Âº/g;
+    $line=~s/ und ecirc;/Ãª/g;
+    $line=~s/ und ecirc;/Ãª/g;
+    $line=~s/ und ccedil;/Ã§/g;
+    $line=~s/ und curren;/â‚¬/g;
+    $line=~s/und curren;/â‚¬/g;
+    $line=~s/und Ccedil;/Ã‡/g;
+    $line=~s/ und ocirc;/Ã´/g;
+    $line=~s/ und egrave;/Ã¨/g;
+    $line=~s/ und agrave;/Ã /g;
     $line=~s/und quot;/"/g;
-    $line=~s/und Ouml;/Ö/g;
-    $line=~s/und Uuml;/Ü/g;
-    $line=~s/und Auml;/Ä/g;
-    $line=~s/und ouml;/ö/g;
-    $line=~s/und uuml;/ü/g;
-    $line=~s/und auml;/ä/g;
+    $line=~s/und Ouml;/Ã–/g;
+    $line=~s/und Uuml;/Ãœ/g;
+    $line=~s/und Auml;/Ã„/g;
+    $line=~s/und ouml;/Ã¶/g;
+    $line=~s/und uuml;/Ã¼/g;
+    $line=~s/und auml;/Ã¤/g;
     
     # English - only ever seen a problem with the Ampersand character..
     
@@ -86,12 +86,19 @@ sub xmltvtranslate
 # Translate genre text to hex numbers 
 sub genre_id {
 	my ($xmlline, $genretxt, $genrenum) = @_;
-	if ( $xmlline =~ m/\<category\>($genretxt)\<\/category\>/)
+	if ( $xmlline =~ m/\<category.*?\>($genretxt)\<\/category\>/)
 	{
        	 return "G $genrenum\r\n";
 	}
 }
-
+# Translate ratings text to hex numbers 
+sub ratings_id {
+	my ($xmlline, $ratingstxt, $ratingsnum) = @_;
+	if ( $xmlline =~ m/\<value\>($ratingstxt)\<\/value\>/)
+	{
+       	 return "R $ratingsnum\r\n";
+	}
+}
 
 
 # Convert XMLTV time format (YYYYMMDDmmss ZZZ) into VDR (secs since epoch)
@@ -150,7 +157,6 @@ sub EpgSend
     SVDRPreceive(250);
     if ($verbose == 1 ) { warn("$p_nbEvent event(s) sent for $p_chanName\n"); }
 }
-
 # Process info from XMLTV file / channels.conf and send via SVDRP to VDR
 
 sub ProcessEpg
@@ -206,6 +212,12 @@ sub ProcessEpg
     my $chanevent = 0;
     my $dc = 0;
     my $founddesc=0;
+    my $foundcredits=0;
+    my $creditscomplete=0;
+    my $description = "";
+    my $creditdesc = "";
+    my $foundrating=0;
+    my $setrating=0;
     my $genreinfo=0;
     my $gi = 0;
     my $chanCur = "";
@@ -278,10 +290,7 @@ sub ProcessEpg
             if ( $descv == $dc )
             {
                 # Send VDR Description & end of event
-                $epgText .= "D $1\r\n";
-                #$epgText .= "e\r\n";
-                
-                $dc++;
+                $description .= "$1|";
                 $founddesc=1;
             }
             else
@@ -290,25 +299,46 @@ sub ProcessEpg
                 $dc++;
             }
         }
+        if ( ( $foundcredits == 0 ) && ( $xmlline =~ m/\<credits\>/o ) )
+        {
+                $foundcredits=1;
+		$creditdesc="";
+            }
 
-	if ( $genre == 0 )
-	{
-		if ( ( $genreinfo == 0 ) && ( $xmlline =~ m:\<category.*?\>(.*?)\</category\>:o ) )
+	if ( ( $foundcredits == 1 ) && ( $xmlline =~ m:\<.*?\>(.*?)\<:o ) )
+	{		
+		my $desc;
+		my $type;
+		$desc = $1;
+		$temp = "";
+		if ( $xmlline =~ m:\<(.*?)\>:o )
 		{
-			if ( $genre == $gi )
-			{
-				open(GENRE, "genres.conf") || die "cannot open file";
-				my $genretxt;
-				my $genrenum;
-				my $genreline;
+		$type = ucfirst $1;
+		}
+		$creditdesc .= "$type $desc|";
+        }
+	if ( ( $foundcredits== 1) && ( $xmlline =~ m/\<\/credits\>/o ) ) 
+	{
+		$foundcredits = 0;
+		$creditscomplete = 1;
+	}
+        if ( ( $foundrating == 0 ) && ( $xmlline =~ m:\<rating.*?\=(.*?)\>:o ) )
+        {
+                $foundrating=1;
+
+        }
+        if ( ( $foundrating == 1 ) && ( $ratings == 0 ) && ( $xmlline =~ m:\<value.*?\>(.*?)\<:o ) )
+        {
+            if ( $setrating == 0 )
+            {
+				my $ratingstxt;
+				my $ratingsnum;
+				my $ratingsline;
 				my $tmp;
-				while ( $genreline=<GENRE> )
+				foreach my $ratingsline ( @ratinglines )
 				{
-					s/#.*//;
-					s/^(\s)*$//;
-					chomp $genreline;
-					my ($genretxt, $genrenum) = split(/:/, $genreline);
-					$tmp=genre_id($xmlline, $genretxt, $genrenum);
+					my ($ratingstxt, $ratingsnum) = split(/:/, $ratingsline);
+					$tmp=ratings_id($xmlline, $ratingstxt, $ratingsnum);
 					if ($tmp)
 					{
        			 			last; # break out of the while loop
@@ -317,6 +347,36 @@ sub ProcessEpg
 				}
 				if ($tmp) {
 					$epgText .=$tmp;
+	                		$setrating=1;
+					$description .= "$1|";
+				}
+	
+
+
+            }
+        }
+	if ( $genre == 0 )
+	{
+		if ( ( $genreinfo == 0 ) && ( $xmlline =~ m:\<category.*?\>(.*?)\</category\>:o ) )
+		{
+			if ( $genre == $gi )
+			{
+				my $genretxt;
+				my $genrenum;
+				my $genreline;
+				my $tmp;
+					foreach my $genreline ( @genlines )
+					{
+					my ($genretxt, $genrenum) = split(/:/, $genreline);
+					$tmp=genre_id($xmlline, $genretxt, $genrenum);
+					if ($tmp)
+					{
+       			 			last; # break out of the while loop
+    					}
+				}
+				if ($tmp) {
+					$epgText .=$tmp;
+					$description .= "$genretxt|";
 					$gi++;
 					$genreinfo=1;
 				}
@@ -349,19 +409,25 @@ sub ProcessEpg
                 $epgText .= "e\r\n";
 		}
 		if  (( $founddesc == 1 ) && ( $genreinfo == 0 )) {
+		$epgText .= "D $description$creditdesc\r\n";
 		$epgText .= "G 0\r\n";
                 $epgText .= "e\r\n";
 		}
             }
 	    else 
 	    {
+		$epgText .= "D $description$creditdesc\r\n";
 		$epgText .= "e\r\n";
 	    }
             $chanevent=0 ;
             $dc=0 ;
             $founddesc=0 ;
 	    $genreinfo=0;
+	    $foundrating=0;
+	    $setrating=0;
 	    $gi=0;
+	    $creditscomplete = "";
+	    $description = "";
         }
     }
     
@@ -385,7 +451,8 @@ Options:
  -c channels.conf	File containing modified channels.conf info
  -d hostname            destination hostname (default: localhost)
  -h			Show help text
- -g genreinformation   if file contains genre information then add it
+ -g genre.conf   	if xmltv source file contains genre information then add it
+ -r ratings.conf   	if xmltv source file contains ratings information then add it
  -l description length  Verbosity of EPG descriptions to use
                         (0-2, 0: more verbose, default: 0)
  -p port                SVDRP port number (default: 2001)
@@ -397,11 +464,10 @@ Options:
     
 };
 
-die $Usage if (!getopts('a:d:p:l:t:x:c:vghs') || $opt_h);
+die $Usage if (!getopts('a:d:p:l:g:r:t:x:c:vhs') || $opt_h);
 
 $verbose = 1 if $opt_v;
 $sim = 1 if $opt_s;
-$gen = 1 if $opt_g;
 $adjust = $opt_a || 0;
 my $Dest   = $opt_d || "localhost";
 my $Port   = $opt_p || 2001;
@@ -409,14 +475,42 @@ my $descv   = $opt_l || 0;
 my $Timeout = $opt_t || 300; # max. seconds to wait for response
 my $xmltvfile = $opt_x  || die "$Usage Need to specify an XMLTV file";
 my $channelsfile = $opt_c  || die "$Usage Need to specify a channels.conf file";
+$genfile = $opt_g if $opt_g;
+$ratingsfile = $opt_r if $opt_r;
 
 # Check description value
-
-if ( $gen == 1 ){
+if ($genfile) {
 $genre=0;
+my @genrelines;
+# Read the genres.conf stuff into memory - quicker parsing
+open(GENRE, "$genfile") || die "cannot open genres.conf file";
+while ( <GENRE> ) {
+	s/#.*//;            # ignore comments by erasing them
+	next if /^(\s)*$/;  # skip blank lines
+	chomp;
+	push @genlines, $_;
+}
+close GENRE;
 }
 else {
 $genre=1;
+}
+
+if ($ratingsfile) {
+$ratings=0;
+my @ratinglines;
+# Read the genres.conf stuff into memory - quicker parsing
+open(RATINGS, "$ratingsfile") || die "cannot open genres.conf file";
+while ( <RATINGS> ) {
+	s/#.*//;            # ignore comments by erasing them
+	next if /^(\s)*$/;  # skip blank lines
+	chomp;
+	push @ratinglines, $_;
+}
+close RATINGS;
+}
+else {
+$ratings=1;
 }
 
 

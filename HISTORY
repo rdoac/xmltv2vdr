@@ -60,3 +60,10 @@ events showing in the EPG when times are changed for programmes
 2010-03-07: Version 1.0.8
 
 - Added genre information
+
+2010-03-09: Version 1.0.9
+
+- Added Ratings, tidied Genre for NA..  Added ratings, Genre and Credits into description.
+- Added option to specify ratings.conf and genres.conf
+- Changed the reading of the genre/ratings conf files. Now it realy strips out comment and empty lines :) 
+
