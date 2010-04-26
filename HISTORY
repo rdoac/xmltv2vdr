@@ -1,5 +1,5 @@
 xmltv2vdr Revision History
----------------------------------
+--------------------------
 
 2003-04-04: Version 1.0
 
@@ -39,3 +39,16 @@ events showing in the EPG when times are changed for programmes
   to SVDRP, but prints all commands it would sent to stdout.
 - Fixed problem for satellite users not getting information into VDR. Problem
   was that the frequency is not chopped to three digits like terrestrial.
+
+2004-04-19: Version 1.0.6
+
+- Added fixes for German and English HTML translations (&amp etc)
+- Some people report having time problems, I suspect this is due to incorrect
+  time zone settings or problems with xmltv listings, but I have added
+  a skew setting to xmltv2vdr (e.g. -a -60 to set the listings data back one 
+  hour).
+- Tidied up the usage information
+- Fixed SVDRReceive which caused broken pipe errors, and ignoring last channel
+  in the config file
+- Fixed small problem with pattern matching code (thanks to Dominic Morris 
+  and Tony Leino)

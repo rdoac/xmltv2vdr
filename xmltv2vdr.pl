@@ -2,7 +2,7 @@
 
 # xmltv2vdr.pl
 #
-# Converts data from an xmltv output file to VDR
+# Converts data from an xmltv output file to VDR - tested with 1.2.6
 #
 # The TCP SVDRSend and Receive functions have been used from the getskyepg.pl
 # Plugin for VDR.
@@ -18,20 +18,71 @@
 #
 # See the README file for copyright information and how to reach the author.
 
-# $Id: xmltv2vdr.pl 1.0.5 2003/05/19 22:32:04 psr Exp $
+# $Id: xmltv2vdr.pl 1.0.6 2004/04/19 20:01:04 psr Exp $
 
 
 use Getopt::Std;
 use Time::Local;
 use Date::Manip;
 
+
+# Translate HTML/XML encodings into normal characters
+# For some German problems, and also English
+
+sub xmltvtranslate
+{
+  $line=shift;
+
+  # German Requests - mail me with updates if some of these are wrong..
+
+  $line=~s/ und uuml;/ü/g;
+  $line=~s/ und auml;/ä/g; 
+  $line=~s/ und ouml;/ö/g;
+  $line=~s/ und quot;/"/g; 
+  $line=~s/ und szlig;/ß/g; 
+  $line=~s/ und amp;/\&/g; 
+  $line=~s/ und middot;/·/g; 
+  $line=~s/ und Ouml;/Ö/g; 
+  $line=~s/ und Auml;/Ä/g;
+  $line=~s/ und Uuml;/Ü/g ;
+  $line=~s/ und eacute;/é/g;
+  $line=~s/ und aacute;/á/g;
+  $line=~s/ und deg;/°/g;
+  $line=~s/ und ordm;/º/g;
+  $line=~s/ und ecirc;/ê/g;
+  $line=~s/ und ecirc;/ê/g;
+  $line=~s/ und ccedil;/ç/g;
+  $line=~s/ und curren;/¤/g;
+  $line=~s/und curren;/¤/g;
+  $line=~s/und Ccedil;/Ç/g;
+  $line=~s/ und ocirc;/ô/g;
+  $line=~s/ und egrave;/è/g;
+  $line=~s/ und agrave;/à/g;
+  $line=~s/und quot;/"/g;
+  $line=~s/und Ouml;/Ö/g;
+  $line=~s/und Uuml;/Ü/g;
+  $line=~s/und Auml;/Ä/g;
+  $line=~s/und ouml;/ö/g;
+  $line=~s/und uuml;/ü/g;
+  $line=~s/und auml;/ä/g;
+ 
+  # English - only ever seen a problem with the Ampersand character..
+
+  $line=~s/&amp;/&/g;
+ 
+  return $line;
+}
+
+
+
 # Convert XMLTV time format (YYYYMMDDmmss ZZZ) into VDR (secs since epoch)
 
 sub xmltime2vdr
 {
   my $xmltime=shift;
+  my $skew=shift;
   $secs = &Date::Manip::UnixDate($xmltime, "%s");
-  return $secs;
+  return $secs + ( $skew * 60 );
 }
 
 # Send info over SVDRP (thanks to Sky plugin)
@@ -53,10 +104,11 @@ sub SVDRPsend
 
 sub SVDRPreceive
 {
-  if ($sim == 0)
+  my $expect = shift | 0;
+
+  if ($sim == 1)
   { return 0; }
 
-  my $expect = shift | 0;
   my @a = ();
   while (<SOCK>) {
         s/\s*$//; # 'chomp' wouldn't work with "\r\n"
@@ -129,15 +181,15 @@ while ( $chanline=<CHANNELS> )
   foreach $xmlline (@xmllines)
   {
      chomp $xmlline;
+     $xmlline=xmltvtranslate($xmlline);
 
      # New XML Program - doesn't handle split programs yet
-
-     if ( ($xmlline =~ /\<programme/ ) && ( $xmlline =~ /$xmltv_channel_name/ ) && ( $xmlline !~ /clumpidx=\"1\/2\"/ ) && ( $chanevent == 0 ) )
+     if ( ($xmlline =~ /\<programme/ ) && ( $xmlline =~ /\"$xmltv_channel_name/ ) && ( $xmlline !~ /clumpidx=\"1\/2\"/ ) && ( $chanevent == 0 ) )
      {  
        $chanevent = 1;
        ( $null, $xmlst, $null, $xmlet, @null ) = split(/\"/, $xmlline);
-       $vdrst = &xmltime2vdr($xmlst);
-       $vdret = &xmltime2vdr($xmlet);
+       $vdrst = &xmltime2vdr($xmlst, $adjust);
+       $vdret = &xmltime2vdr($xmlet, $adjust);
        $vdrdur = $vdret - $vdrst;
        $vdrid = $vdrst / 60 % 0xFFFF;
        
@@ -198,7 +250,7 @@ while ( $chanline=<CHANNELS> )
      }
   }
 
-  # Send End of Event, End of Channel, and end of EPG data
+  # Send End of Channel, and end of EPG data
 
   SVDRPsend("c");
   SVDRPsend(".");
@@ -212,28 +264,33 @@ while ( $chanline=<CHANNELS> )
 use Socket;
 
 $Usage = qq{
-Usage: $0 [options]
+Usage: $0 [options] -c <channels.conf file> -x <xmltv datafile> 
 
-Options: -d hostname            destination hostname (default: localhost)
-         -p port                SVDRP port number (default: 2001)
+Options:
+	 -a (+,-) mins  	Adjust the time from xmltv that is fed
+				into VDR (in minutes) (default: 0)	 
+	 -c channels.conf	File containing modified channels.conf info
+	 -d hostname            destination hostname (default: localhost)
+	 -h			Show help text
 	 -l description length  Verbosity of EPG descriptions to use
                                 (0-2, 0: more verbose, default: 0)
-         -t timeout             The time this program has to give all info to VDR (default: 300s) 
-	 -x xmltv output file 
-	 -c modified channels.conf file	
-	 -v             	Show warning messages
+         -p port                SVDRP port number (default: 2001)
 	 -s			Simulation Mode (Print info to stdout)
-	 -h			Show help text
+         -t timeout             The time this program has to give all info to 
+				VDR (default: 300s) 
+	 -v             	Show warning messages
+	 -x xmltv output 	File containing xmltv data
 
 };
 
 $sim=0;
 
 
-die $Usage if (!getopts('d:p:l:t:x:c:b:vhs') || $opt_h);
+die $Usage if (!getopts('a:d:p:l:t:x:c:vhs') || $opt_h);
 
 $verbose = 1 if $opt_v;
 $sim = 1 if $opt_s;
+$adjust = $opt_a || 0;
 $Dest   = $opt_d || "localhost";
 $Port   = $opt_p || 2001;
 $descv   = $opt_l || 0;
@@ -271,7 +328,7 @@ if ( $sim == 0 )
   $proto = getprotobyname('tcp');
   socket(SOCK, PF_INET, SOCK_STREAM, $proto)  || die("socket: $!");
   connect(SOCK, $paddr)                       || die("connect: $!");
-  select(SOCK); $| = 1;
+  select((select(SOCK), $| = 1)[0]);
 }
 
 # Look for initial banner
@@ -283,6 +340,7 @@ SVDRPreceive(250);
 ProcessEpg($descv);
 
 # Lets get out of here! :-)
+
 SVDRPsend("QUIT");
 SVDRPreceive(221);
 

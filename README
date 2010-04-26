@@ -60,6 +60,9 @@ package (crystal palace).
 
 Voila! You should now have extended EPG information in VDR!
 
+This script is tested with VDR 1.2.6 - please report success/failures with
+1.3.x to me.
+
 Any suggestions for changes, problems that you locate, thanks, praise,
 flames pizzas, or gifts of electrical items (a plasma screen would be
 nice), please mail me. Seriously, enjoy!
