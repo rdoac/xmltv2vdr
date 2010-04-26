@@ -14,3 +14,10 @@ events showing in the EPG when times are changed for programmes
 
 - Problem with ending an event when "no info available" is now fixed
 - Problem with 2 "e" event end codes at end of EPG crashing VDR is now fixed
+
+2003-05-01: Version 1.0.3
+
+- Problem with not reading final data and closing the SOCK sometimes crashes
+  VDR - now fixed.
+- Problem with inserting channel information when the NID > 0 is now fixed,
+  thanks to Gerhard Steiner.

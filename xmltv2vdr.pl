@@ -18,7 +18,7 @@
 #
 # See the README file for copyright information and how to reach the author.
 
-# $Id: xmltv2vdr.pl 1.0.2 2003/04/07 23:03:17 psr Exp $
+# $Id: xmltv2vdr.pl 1.0.3 2003/05/01 12:23:00 psr Exp $
 
 
 use Getopt::Std;
@@ -81,9 +81,15 @@ while ( $chanline=<CHANNELS> )
   $epgfreq=substr($freq, 0, 3);
 
 
-  # Send a Channel Entry  
-
-  SVDRPsend("C $source-0-$epgfreq-$sid $channel_name");
+  # Send a Channel Entry
+  if ($nid>0) 
+  {
+     SVDRPsend("C $source-$nid-$tid-$sid $channel_name");
+  }
+  else 
+  {
+     SVDRPsend("C $source-$nid-$epgfreq-$sid $channel_name");
+  }
 
   # Set XML parsing variables
 
@@ -186,7 +192,7 @@ Options: -d hostname            destination hostname (default: localhost)
 	 -l description length  Verbosity of EPG descriptions to use
                                 (0-2, 0: more verbose, default: 0)
 	 -x xmltv output file 
-	 -c modified hannels.conf file	
+	 -c modified channels.conf file	
 };
 
 die $Usage if (!getopts("x:c:l:") || $opt_h);
@@ -239,3 +245,6 @@ ProcessEpg($descv);
 
 # Lets get out of here! :-)
 SVDRPsend("QUIT");
+SVDRPreceive(221);
+
+close(SOCK);
