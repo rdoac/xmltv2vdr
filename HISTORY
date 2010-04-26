@@ -21,3 +21,21 @@ events showing in the EPG when times are changed for programmes
   VDR - now fixed.
 - Problem with inserting channel information when the NID > 0 is now fixed,
   thanks to Gerhard Steiner.
+
+2003-05-18: Version 1.0.4
+
+- Problem with options fixed
+- Changes incorporated from Erik Günther ("I did find out that VDR ignores extra  information on a line so adding xmltv-info at the end of the line works fine.   The problem was that xmltv2vdr.pl expected that all lines in input ether 
+  to have a xmltv extention or was not an header line.  I also added an new 
+  option -t for changing the timeout. This was for my machine a P3 600 
+  was to slow and wasn't done in time. So now I can specify -t 600 for 600s)
+- Fixed problems with the "expected SVDRP code 250, but received 451 at 
+  ./xmltv2vdr.pl line 56" error.
+- Added extra flag, -v to show warning/debug messages
+
+2003-05-19: Version 1.0.5
+
+- Added simulation mode option (-s) for debugging. This does not send info
+  to SVDRP, but prints all commands it would sent to stdout.
+- Fixed problem for satellite users not getting information into VDR. Problem
+  was that the frequency is not chopped to three digits like terrestrial.

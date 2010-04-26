@@ -18,7 +18,7 @@
 #
 # See the README file for copyright information and how to reach the author.
 
-# $Id: xmltv2vdr.pl 1.0.3 2003/05/01 12:23:00 psr Exp $
+# $Id: xmltv2vdr.pl 1.0.5 2003/05/19 22:32:04 psr Exp $
 
 
 use Getopt::Std;
@@ -39,13 +39,23 @@ sub xmltime2vdr
 sub SVDRPsend
 {
   my $s = shift;
-  print SOCK "$s\r\n";
+  if ($sim == 0)
+  {
+    print SOCK "$s\r\n";
+  }
+  else 
+  {
+    print "$s\r\n";
+  } 
 }
 
 # Recv info over SVDRP (thanks to Sky plugin)
 
 sub SVDRPreceive
 {
+  if ($sim == 0)
+  { return 0; }
+
   my $expect = shift | 0;
   my @a = ();
   while (<SOCK>) {
@@ -69,17 +79,34 @@ while ( $chanline=<CHANNELS> )
 {
   $desccount = shift; # Verbosity
 
-  # Send VDR PUT EPG
-  SVDRPsend("PUTE");
-  SVDRPreceive(354);
-
   # Split a Chan Line
   
   chomp $chanline;
  
   ($channel_name, $freq, $param, $source, $srate, $vpid, $apid, $tpid, $ca, $sid, $nid, $tid, $rid, $xmltv_channel_name) = split(/:/, $chanline);
-  $epgfreq=substr($freq, 0, 3);
 
+  if ( $source eq 'T' )
+  { 
+     $epgfreq=substr($freq, 0, 3);
+  }
+  else
+  { 
+     $epgfreq=$freq;
+  }
+
+  if (!$xmltv_channel_name) {
+      if(!$channel_name) {
+	  $chanline =~ m/:(.*$)/;
+	  if ($verbose == 1 ) { warn("Ignoring header: $1\n"); }
+      } else {
+	  if ($verbose == 1 ) { warn("Ignoring channel: $channel_name, no xmltv info\n"); } 
+      }
+      next;
+  }
+
+  # Send VDR PUT EPG
+  SVDRPsend("PUTE");
+  SVDRPreceive(354);
 
   # Send a Channel Entry
   if ($nid>0) 
@@ -191,15 +218,26 @@ Options: -d hostname            destination hostname (default: localhost)
          -p port                SVDRP port number (default: 2001)
 	 -l description length  Verbosity of EPG descriptions to use
                                 (0-2, 0: more verbose, default: 0)
+         -t timeout             The time this program has to give all info to VDR (default: 300s) 
 	 -x xmltv output file 
 	 -c modified channels.conf file	
+	 -v             	Show warning messages
+	 -s			Simulation Mode (Print info to stdout)
+	 -h			Show help text
+
 };
 
-die $Usage if (!getopts("x:c:l:") || $opt_h);
+$sim=0;
 
+
+die $Usage if (!getopts('d:p:l:t:x:c:b:vhs') || $opt_h);
+
+$verbose = 1 if $opt_v;
+$sim = 1 if $opt_s;
 $Dest   = $opt_d || "localhost";
 $Port   = $opt_p || 2001;
 $descv   = $opt_l || 0;
+$Timeout = $opt_t || 300; # max. seconds to wait for response
 $xmltvfile = $opt_x  || die "$Usage Need to specify an XMLTV file";
 $channelsfile = $opt_c  || die "$Usage Need to specify a channels.conf file";
 
@@ -209,8 +247,6 @@ if ( ( $descv < 0 ) || ( $descv > 2 ) )
 {
   die "$Usage Description out of range. Try 0 - 2";
 }
-
-$Timeout = 300; # max. seconds to wait for response
 
 # Read all the XMLTV stuff into memory - quicker parsing
 
@@ -223,17 +259,20 @@ close(XMLTV);
 open(CHANNELS, "$channelsfile") || die "cannot open channels.conf file";
 
 # Connect to SVDRP socket (thanks to Sky plugin coders)
-  
-$SIG{ALRM} = sub { die("timeout"); };
-alarm($Timeout);
 
-$iaddr = inet_aton($Dest)                   || die("no host: $Dest");
-$paddr = sockaddr_in($Port, $iaddr);
+if ( $sim == 0 )  
+{
+  $SIG{ALRM} = sub { die("timeout"); };
+  alarm($Timeout);
 
-$proto = getprotobyname('tcp');
-socket(SOCK, PF_INET, SOCK_STREAM, $proto)  || die("socket: $!");
-connect(SOCK, $paddr)                       || die("connect: $!");
-select(SOCK); $| = 1;
+  $iaddr = inet_aton($Dest)                   || die("no host: $Dest");
+  $paddr = sockaddr_in($Port, $iaddr);
+
+  $proto = getprotobyname('tcp');
+  socket(SOCK, PF_INET, SOCK_STREAM, $proto)  || die("socket: $!");
+  connect(SOCK, $paddr)                       || die("connect: $!");
+  select(SOCK); $| = 1;
+}
 
 # Look for initial banner
 SVDRPreceive(220);

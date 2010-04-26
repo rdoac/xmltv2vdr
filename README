@@ -52,11 +52,11 @@ in channels.conf : Sky News (TV):578166:I0C34D0M16B8T2G32Y0:T:27500:101:102,104:
 Note the extra field added at the end - don't forget the colon.
 
 ALTERNATIVELY use the provided channels.conf.terr for UK freeview in this
-package (crystal palace)
+package (crystal palace).
 
-8) Run xml2vdr.pl: -
+8) Run xmltv2vdr.pl: -
 
-./xml2vdr.pl -x channels.xml -c channels.conf
+./xmltv2vdr.pl -x channels.xml -c channels.conf
 
 Voila! You should now have extended EPG information in VDR!
 
