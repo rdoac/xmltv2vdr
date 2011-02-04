@@ -40,36 +40,36 @@ sub xmltvtranslate
     
     # German Requests - mail me with updates if some of these are wrong..
     
-    $line=~s/ und uuml;/Ã¼/g;
-    $line=~s/ und auml;/Ã¤/g; 
-    $line=~s/ und ouml;/Ã¶/g;
+    $line=~s/ und uuml;/ü/g;
+    $line=~s/ und auml;/ä/g; 
+    $line=~s/ und ouml;/ö/g;
     $line=~s/ und quot;/"/g; 
-    $line=~s/ und szlig;/ÃŸ/g; 
+    $line=~s/ und szlig;/ß/g; 
     $line=~s/ und amp;/\&/g; 
-    $line=~s/ und middot;/Â·/g; 
-    $line=~s/ und Ouml;/Ã–/g; 
-    $line=~s/ und Auml;/Ã„/g;
-    $line=~s/ und Uuml;/Ãœ/g ;
-    $line=~s/ und eacute;/Ã©/g;
-    $line=~s/ und aacute;/Ã¡/g;
-    $line=~s/ und deg;/Â°/g;
-    $line=~s/ und ordm;/Âº/g;
-    $line=~s/ und ecirc;/Ãª/g;
-    $line=~s/ und ecirc;/Ãª/g;
-    $line=~s/ und ccedil;/Ã§/g;
-    $line=~s/ und curren;/â‚¬/g;
-    $line=~s/und curren;/â‚¬/g;
-    $line=~s/und Ccedil;/Ã‡/g;
-    $line=~s/ und ocirc;/Ã´/g;
-    $line=~s/ und egrave;/Ã¨/g;
-    $line=~s/ und agrave;/Ã /g;
+    $line=~s/ und middot;/·/g; 
+    $line=~s/ und Ouml;/Ö/g; 
+    $line=~s/ und Auml;/Ä/g;
+    $line=~s/ und Uuml;/Ü/g ;
+    $line=~s/ und eacute;/é/g;
+    $line=~s/ und aacute;/á/g;
+    $line=~s/ und deg;/°/g;
+    $line=~s/ und ordm;/º/g;
+    $line=~s/ und ecirc;/ê/g;
+    $line=~s/ und ecirc;/ê/g;
+    $line=~s/ und ccedil;/ç/g;
+    $line=~s/ und curren;/¤/g;
+    $line=~s/und curren;/¤/g;
+    $line=~s/und Ccedil;/Ç/g;
+    $line=~s/ und ocirc;/ô/g;
+    $line=~s/ und egrave;/è/g;
+    $line=~s/ und agrave;/à/g;
     $line=~s/und quot;/"/g;
-    $line=~s/und Ouml;/Ã–/g;
-    $line=~s/und Uuml;/Ãœ/g;
-    $line=~s/und Auml;/Ã„/g;
-    $line=~s/und ouml;/Ã¶/g;
-    $line=~s/und uuml;/Ã¼/g;
-    $line=~s/und auml;/Ã¤/g;
+    $line=~s/und Ouml;/Ö/g;
+    $line=~s/und Uuml;/Ü/g;
+    $line=~s/und Auml;/Ä/g;
+    $line=~s/und ouml;/ö/g;
+    $line=~s/und uuml;/ü/g;
+    $line=~s/und auml;/ä/g;
     
     # English - only ever seen a problem with the Ampersand character..
     
@@ -140,7 +140,7 @@ sub SVDRPreceive
         push(@a, $_);
         if (substr($_, 3, 1) ne "-") {
             my $code = substr($_, 0, 3);
-            die("expected SVDRP code $expect, but received $code") if ($code != $expect);
+            warn("expected SVDRP code $expect, but received $code") if ($code != $expect);
             last;
         }
     }
@@ -174,9 +174,9 @@ sub ProcessEpg
         
         my ($channel_name, $freq, $param, $source, $srate, $vpid, $apid, $tpid, $ca, $sid, $nid, $tid, $rid, $xmltv_channel_name) = split(/:/, $chanline);
         
-        if ( $source eq 'T' )
+        if ( $source eq 'A' or $source eq 'T' )
         { 
-            $epgfreq=substr($freq, 0, 3);
+            $epgfreq=$freq / 1000;
         }
         else
         { 
@@ -197,7 +197,7 @@ sub ProcessEpg
         {
         	$chanName{$myChannel} = $channel_name;
         	# Save the Channel Entry
-        	if ($nid>0) 
+        	if ($tid>0 or $nid>0)
         	{
                 $chanId{$myChannel} = "C $source-$nid-$tid-$sid $channel_name\r\n";
         	}
@@ -327,16 +327,21 @@ sub ProcessEpg
                 $foundrating=1;
 
         }
-        if ( ( $foundrating == 1 ) && ( $ratings == 0 ) && ( $xmlline =~ m:\<value.*?\>(.*?)\<:o ) )
+        if ( ( $foundrating == 1 ) && ( $xmlline =~ m:\<value.*?\>(.*?)\<:o ) )
         {
             if ( $setrating == 0 )
             {
+				
+				open(RATINGS, "/etc/vdr/plugins/loadepg/ratings.conf") || die "cannot open file";
 				my $ratingstxt;
 				my $ratingsnum;
 				my $ratingsline;
 				my $tmp;
-				foreach my $ratingsline ( @ratinglines )
+				while ( $ratingsline=<RATINGS> )
 				{
+					s/#.*//;
+					s/^(\s)*$//;
+					chomp $ratingsline;
 					my ($ratingstxt, $ratingsnum) = split(/:/, $ratingsline);
 					$tmp=ratings_id($xmlline, $ratingstxt, $ratingsnum);
 					if ($tmp)
@@ -361,22 +366,28 @@ sub ProcessEpg
 		{
 			if ( $genre == $gi )
 			{
+				open(GENRE, "/etc/vdr/plugins/loadepg/genres.conf") || die "cannot open file";
 				my $genretxt;
 				my $genrenum;
 				my $genreline;
 				my $tmp;
-					foreach my $genreline ( @genlines )
-					{
+				while ( $genreline=<GENRE> )
+				{
+					s/#.*//;
+					s/^(\s)*$//;
+					chomp $genreline;
 					my ($genretxt, $genrenum) = split(/:/, $genreline);
+
 					$tmp=genre_id($xmlline, $genretxt, $genrenum);
 					if ($tmp)
 					{
        			 			last; # break out of the while loop
     					}
+		
 				}
 				if ($tmp) {
 					$epgText .=$tmp;
-					$description .= "$genretxt|";
+					$description .= "$1|";
 					$gi++;
 					$genreinfo=1;
 				}
@@ -427,6 +438,7 @@ sub ProcessEpg
 	    $setrating=0;
 	    $gi=0;
 	    $creditscomplete = "";
+            $creditdesc = "";
 	    $description = "";
         }
     }
@@ -451,11 +463,10 @@ Options:
  -c channels.conf	File containing modified channels.conf info
  -d hostname            destination hostname (default: localhost)
  -h			Show help text
- -g genre.conf   	if xmltv source file contains genre information then add it
- -r ratings.conf   	if xmltv source file contains ratings information then add it
+ -g genreinformation   if file contains genre information then add it
  -l description length  Verbosity of EPG descriptions to use
                         (0-2, 0: more verbose, default: 0)
- -p port                SVDRP port number (default: 2001)
+ -p port                SVDRP port number (default: 6419)
  -s			Simulation Mode (Print info to stdout)
  -t timeout             The time this program has to give all info to 
                         VDR (default: 300s) 
@@ -464,53 +475,26 @@ Options:
     
 };
 
-die $Usage if (!getopts('a:d:p:l:g:r:t:x:c:vhs') || $opt_h);
+die $Usage if (!getopts('a:d:p:l:t:x:c:vghs') || $opt_h);
 
 $verbose = 1 if $opt_v;
 $sim = 1 if $opt_s;
+$gen = 1 if $opt_g;
 $adjust = $opt_a || 0;
 my $Dest   = $opt_d || "localhost";
-my $Port   = $opt_p || 2001;
+my $Port   = $opt_p || 6419;
 my $descv   = $opt_l || 0;
 my $Timeout = $opt_t || 300; # max. seconds to wait for response
 my $xmltvfile = $opt_x  || die "$Usage Need to specify an XMLTV file";
 my $channelsfile = $opt_c  || die "$Usage Need to specify a channels.conf file";
-$genfile = $opt_g if $opt_g;
-$ratingsfile = $opt_r if $opt_r;
 
 # Check description value
-if ($genfile) {
+
+if ( $gen == 1 ){
 $genre=0;
-my @genrelines;
-# Read the genres.conf stuff into memory - quicker parsing
-open(GENRE, "$genfile") || die "cannot open genres.conf file";
-while ( <GENRE> ) {
-	s/#.*//;            # ignore comments by erasing them
-	next if /^(\s)*$/;  # skip blank lines
-	chomp;
-	push @genlines, $_;
-}
-close GENRE;
 }
 else {
 $genre=1;
-}
-
-if ($ratingsfile) {
-$ratings=0;
-my @ratinglines;
-# Read the genres.conf stuff into memory - quicker parsing
-open(RATINGS, "$ratingsfile") || die "cannot open genres.conf file";
-while ( <RATINGS> ) {
-	s/#.*//;            # ignore comments by erasing them
-	next if /^(\s)*$/;  # skip blank lines
-	chomp;
-	push @ratinglines, $_;
-}
-close RATINGS;
-}
-else {
-$ratings=1;
 }
 
 
@@ -546,8 +530,8 @@ if ( $sim == 0 )
 
 # Look for initial banner
 SVDRPreceive(220);
-SVDRPsend("CLRE");
-SVDRPreceive(250);
+#SVDRPsend("CLRE");
+#SVDRPreceive(250);
 
 # Do the EPG stuff
 ProcessEpg();
